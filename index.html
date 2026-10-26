@@ -1,0 +1,1483 @@
+<!doctype html><html lang="fr"><head><meta charset=utf8><meta name=viewport content="width=device-width,initial-scale=1,viewport-fit=cover"><meta name="apple-mobile-web-app-capable" content="yes"><meta name="mobile-web-app-capable" content="yes"><meta name="apple-mobile-web-app-title" content="Stock bus"><title>Stock du bus</title><style>:root{color-scheme:light;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}html{scroll-padding-top:env(safe-area-inset-top,0px)}body{margin:0;padding:0;font:14px -apple-system,BlinkMacSystemFont,sans-serif;background:#fff;color:#000}img{max-width:100%}[hidden]:not([hidden=until-found i]){display:none!important}</style></head><body>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow:wght@400;500;600&family=Barlow+Condensed:wght@500;600;700&display=swap">
+<style>
+/* Layout : une colonne étroite pour le téléphone. Bandeau d'alerte, barre d'outils (filtres, catégories), puis la liste groupée par catégorie. Chaque ligne a deux zones : le nom (ouvre la fiche) et la pastille de stock (ouvre un éditeur avec Valider / Annuler). */
+:root {
+  --bg: #EDF1F3;
+  --surface: #FFFFFF;
+  --surface-2: #E1E8EC;
+  --ink: #182126;
+  --muted: #56666F;
+  --line: #D3DCE1;
+  --accent: #0B6E8A;
+  --accent-on: #FFFFFF;
+  --alert: #B3261E;
+  --alert-on: #FFFFFF;
+  --alert-bg: #FCE8E6;
+  --alert-ink: #8C1D17;
+  --ok: #1B7A4B;
+  --ok-bg: #E1F3E9;
+  --warn: #8F5200;
+  --warn-bg: #FBEBD0;
+  --font-display: 'Barlow Condensed', 'Arial Narrow', sans-serif;
+  --font-body: 'Barlow', system-ui, -apple-system, 'Segoe UI', sans-serif;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #0F161A;
+    --surface: #182026;
+    --surface-2: #222D34;
+    --ink: #E6EDF0;
+    --muted: #8FA1AB;
+    --line: #2B3841;
+    --accent: #5CC0DC;
+    --accent-on: #06222B;
+    --alert: #FF7A70;
+    --alert-on: #2A0E0C;
+    --alert-bg: #3A1B19;
+    --alert-ink: #FFB0A8;
+    --ok: #5FD59A;
+    --ok-bg: #153024;
+    --warn: #F0B04F;
+    --warn-bg: #3A2C10;
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #0F161A;
+  --surface: #182026;
+  --surface-2: #222D34;
+  --ink: #E6EDF0;
+  --muted: #8FA1AB;
+  --line: #2B3841;
+  --accent: #5CC0DC;
+  --accent-on: #06222B;
+  --alert: #FF7A70;
+  --alert-on: #2A0E0C;
+  --alert-bg: #3A1B19;
+  --alert-ink: #FFB0A8;
+  --ok: #5FD59A;
+  --ok-bg: #153024;
+  --warn: #F0B04F;
+  --warn-bg: #3A2C10;
+  color-scheme: dark;
+}
+
+* { box-sizing: border-box; }
+body {
+  background: var(--bg);
+  color: var(--ink);
+  font: 16px/1.45 var(--font-body);
+  padding-block: 20px 56px;
+  padding-left: max(16px, env(safe-area-inset-left, 0px));
+  padding-right: max(16px, env(safe-area-inset-right, 0px));
+}
+.app { max-width: 680px; margin: 0 auto; display: flex; flex-direction: column; gap: 16px; }
+
+header { display: flex; justify-content: space-between; align-items: center; gap: 12px; }
+h1 { margin: 0; font: 700 40px/1 var(--font-display); letter-spacing: .01em; }
+.sub { margin: 4px 0 0; color: var(--muted); font-size: 14px; }
+
+button { font-family: inherit; }
+.btn {
+  min-height: 46px; padding: 0 18px; border: 1px solid var(--line); border-radius: 10px;
+  background: var(--surface); color: var(--ink); font: 600 15px var(--font-body); cursor: pointer;
+}
+.btn.primary { background: var(--accent); border-color: var(--accent); color: var(--accent-on); }
+.btn.danger { border-color: var(--alert); color: var(--alert); background: transparent; }
+.btn.danger.confirm { background: var(--alert); color: var(--alert-on); }
+.linkbtn {
+  background: none; border: 0; color: var(--muted); font: 500 14px var(--font-body);
+  text-decoration: underline; min-height: 44px; cursor: pointer; justify-self: center;
+}
+button:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+.notice { margin: -4px 0 0; font-size: 14px; color: var(--muted); }
+
+/* Formulaires */
+label { display: grid; gap: 4px; font-size: 13px; color: var(--muted); font-weight: 500; min-width: 0; }
+input[type="text"], input[type="number"], select {
+  min-height: 46px; width: 100%; border: 1px solid var(--line); border-radius: 10px; padding: 0 12px;
+  background: var(--bg); color: var(--ink); font: 16px var(--font-body);
+}
+.panel { background: var(--surface); border: 1px solid var(--line); border-radius: 14px; padding: 16px; }
+.panel form { display: grid; gap: 12px; }
+.two { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+
+/* Bandeau d'alerte */
+.banner { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; border-radius: 14px; padding: 12px 16px; }
+.banner.alert { background: var(--alert-bg); color: var(--alert-ink); }
+.banner.ok { background: var(--ok-bg); color: var(--ok); font: 600 20px/1.2 var(--font-display); letter-spacing: .05em; text-transform: uppercase; }
+.banner .n { font: 700 38px/1 var(--font-display); font-variant-numeric: tabular-nums; margin-right: 8px; }
+.banner .t { font: 600 20px/1.1 var(--font-display); letter-spacing: .05em; text-transform: uppercase; }
+
+/* Barre d'outils */
+.toolbar { display: grid; gap: 10px; }
+.filters { display: flex; gap: 8px; flex-wrap: wrap; }
+.tools { display: flex; gap: 8px; align-items: center; }
+.tools select { flex: 1; min-width: 0; }
+.tools .btn { flex: none; }
+.chip {
+  min-height: 40px; padding: 0 14px; border-radius: 999px; border: 1px solid var(--line);
+  background: var(--surface); color: var(--ink); font: 500 14px var(--font-body); cursor: pointer;
+}
+.chip[aria-pressed="true"] { background: var(--ink); border-color: var(--ink); color: var(--bg); }
+
+/* Liste */
+.group { display: grid; gap: 8px; }
+.group-head { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; padding: 0 4px; }
+h2 { margin: 0; font: 700 22px/1.1 var(--font-display); letter-spacing: .04em; text-transform: uppercase; }
+.hint { color: var(--muted); font-size: 14px; font-variant-numeric: tabular-nums; }
+.rows { list-style: none; margin: 0; padding: 0; background: var(--surface); border: 1px solid var(--line); border-radius: 14px; overflow: hidden; }
+.row {
+  display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 0 12px; align-items: center;
+  padding: 10px 12px 10px 14px; border-top: 1px solid var(--line);
+}
+.row:first-child { border-top: 0; }
+.row.alert { background: var(--alert-bg); }
+
+.main {
+  display: flex; align-items: center; gap: 12px; min-width: 0; background: none; border: 0; padding: 6px 0; margin: 0;
+  text-align: left; color: inherit; font: inherit; cursor: pointer;
+}
+.main::after { content: "\203A"; margin-left: auto; color: var(--muted); font-size: 22px; line-height: 1; padding-left: 4px; }
+.main[aria-expanded="true"]::after { transform: rotate(90deg); }
+.thumb { width: 84px; height: 64px; border-radius: 10px; object-fit: contain; flex: none; background: var(--surface-2); border: 1px solid var(--line); }
+.txt { min-width: 0; display: grid; gap: 2px; }
+.name { font-weight: 600; font-size: 17px; line-height: 1.25; overflow-wrap: anywhere; }
+.meta { color: var(--muted); font-size: 14px; display: flex; flex-wrap: wrap; align-items: center; gap: 2px 8px; min-height: 8px; }
+.attrs { color: var(--muted); font-size: 13px; overflow-wrap: anywhere; }
+.row.alert .meta, .row.alert .attrs { color: var(--alert-ink); }
+.badge {
+  background: var(--alert); color: var(--alert-on); border-radius: 6px; padding: 1px 8px; white-space: nowrap;
+  font: 700 13px/1.5 var(--font-display); letter-spacing: .06em; text-transform: uppercase;
+}
+.tag { font: 500 12px var(--font-body); color: var(--muted); border: 1px solid var(--line); border-radius: 999px; padding: 0 8px; white-space: nowrap; }
+
+.qtybtn {
+  min-width: 72px; min-height: 58px; border: 1px solid var(--line); border-radius: 12px; background: var(--surface);
+  color: var(--ink); display: grid; place-items: center; align-content: center; gap: 2px; padding: 4px 10px; cursor: pointer;
+}
+.qtybtn .q { font: 700 30px/1 var(--font-display); font-variant-numeric: tabular-nums; }
+.qtybtn .q.word { font-size: 22px; letter-spacing: .02em; }
+.qtybtn .ql { font: 500 11px/1 var(--font-body); color: var(--muted); text-transform: uppercase; letter-spacing: .06em; }
+.row.alert .qtybtn { border-color: var(--alert); }
+.row.alert .qtybtn .q { color: var(--alert-ink); }
+.qtybtn.lvl-plein { background: var(--ok-bg); border-color: var(--ok); color: var(--ok); }
+.qtybtn.lvl-moitie { background: var(--warn-bg); border-color: var(--warn); color: var(--warn); }
+.qtybtn.lvl-bas { background: var(--alert); border-color: var(--alert); color: var(--alert-on); }
+.qtybtn.lvl-bas .ql, .qtybtn.lvl-plein .ql, .qtybtn.lvl-moitie .ql { color: inherit; opacity: .8; }
+.row.alert .qtybtn.lvl-bas .q { color: var(--alert-on); }
+
+/* Panneaux ouverts sous une ligne */
+.sheet { grid-column: 1 / -1; margin-top: 8px; padding-top: 14px; border-top: 1px dashed var(--line); display: grid; gap: 14px; }
+.sheet > .btn.danger { margin-top: 10px; }
+.ed-note { margin: 0; color: var(--muted); font-size: 14px; text-align: center; }
+.ed-step { display: grid; grid-template-columns: 64px minmax(0, 1fr) 64px; gap: 16px; align-items: center; }
+.ed-input {
+  text-align: center; min-height: 64px; font: 700 38px var(--font-display); font-variant-numeric: tabular-nums;
+  padding: 0 8px; border-radius: 12px;
+}
+.step {
+  width: 46px; height: 46px; border-radius: 10px; border: 1px solid var(--line);
+  background: var(--surface); color: var(--ink); font: 600 26px/1 var(--font-body); cursor: pointer;
+}
+.step:active { background: var(--surface-2); }
+.step:disabled { opacity: .4; cursor: default; }
+.step.plus { background: var(--accent); border-color: var(--accent); color: var(--accent-on); }
+.step.big { width: 64px; height: 64px; font-size: 32px; border-radius: 14px; }
+.ed-levels { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
+.ed-levels button {
+  min-height: 58px; border-radius: 12px; border: 2px solid var(--line); background: var(--surface);
+  color: var(--ink); font: 600 16px var(--font-body); cursor: pointer;
+}
+.ed-levels button[aria-pressed="true"][data-val="plein"] { background: var(--ok-bg); border-color: var(--ok); color: var(--ok); }
+.ed-levels button[aria-pressed="true"][data-val="moitie"] { background: var(--warn-bg); border-color: var(--warn); color: var(--warn); }
+.ed-levels button[aria-pressed="true"][data-val="bas"] { background: var(--alert); border-color: var(--alert); color: var(--alert-on); }
+.ed-actions { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+
+.fields { display: grid; grid-template-columns: 1fr 1fr; gap: 10px 12px; }
+.fields label.wide { grid-column: 1 / -1; }
+.facts { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 8px 16px; margin: 0; font-size: 15px; }
+.facts dt { color: var(--muted); }
+.facts dd { margin: 0; overflow-wrap: anywhere; }
+.photo { display: grid; gap: 10px; }
+.photo img { width: 100%; max-height: 380px; object-fit: contain; background: var(--surface-2); border-radius: 12px; border: 1px solid var(--line); cursor: zoom-in; display: block; }
+.photo-actions { display: flex; gap: 8px; flex-wrap: wrap; }
+.filebtn { display: inline-flex; align-items: center; cursor: pointer; }
+.filebtn:focus-within, .addphoto:focus-within { outline: 2px solid var(--accent); outline-offset: 2px; }
+.addphoto {
+  display: flex; align-items: center; justify-content: center; min-height: 96px; border: 2px dashed var(--line);
+  border-radius: 12px; cursor: pointer; color: var(--muted); font: 600 16px var(--font-body);
+}
+.photo-pick { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.photo-pick .addphoto { text-align: center; padding: 8px; }
+.photo-pick.has .addphoto { min-height: 46px; border-style: solid; font-size: 15px; }
+.newphoto { display: grid; gap: 10px; }
+#f-prev { width: 100%; max-height: 260px; object-fit: contain; background: var(--surface-2); border-radius: 12px; border: 1px solid var(--line); display: block; }
+.sr { position: absolute; width: 1px; height: 1px; opacity: 0; overflow: hidden; }
+
+/* Catégories */
+.catrow { display: grid; padding: 6px 14px; border-top: 1px solid var(--line); }
+.catrow:first-child { border-top: 0; }
+.catrow.sub { padding-left: 32px; }
+.catrow .main { width: 100%; }
+.sub-h { margin: 0; font: 600 13px var(--font-body); color: var(--muted); text-transform: uppercase; letter-spacing: .06em; }
+.flist { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; }
+.flist li { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.flist .btn { min-height: 40px; padding: 0 12px; font-size: 14px; }
+.inline { display: flex; gap: 8px; }
+.inline input { flex: 1; min-width: 0; }
+.inline .btn { flex: none; }
+
+/* Commande */
+.order-head { display: flex; justify-content: space-between; align-items: center; gap: 12px; flex-wrap: wrap; }
+.row.oline { grid-template-columns: auto minmax(0, 1fr) auto; }
+.row.oline.off { opacity: .55; }
+.info { min-width: 0; display: grid; gap: 2px; }
+.stepper { display: flex; align-items: center; gap: 8px; }
+.qty { min-width: 2.4ch; text-align: center; font: 700 30px/1 var(--font-display); font-variant-numeric: tabular-nums; }
+.check { width: 26px; height: 26px; accent-color: var(--accent); margin: 0; }
+.export { display: flex; gap: 8px; flex-wrap: wrap; }
+.total { color: var(--muted); font-size: 14px; margin: 0; }
+.empty { padding: 28px 8px; text-align: center; color: var(--muted); margin: 0; }
+.backup { display: flex; gap: 4px 20px; justify-content: center; flex-wrap: wrap; }
+.backup .linkbtn { display: inline-flex; align-items: center; }
+
+/* Sauvegardes : rappel d'export et copies automatiques */
+.bk { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; border-radius: 14px; padding: 12px 16px; background: var(--warn-bg); color: var(--warn); }
+.bk p { margin: 0; font-weight: 600; }
+.bk .btn { flex: none; }
+.snaps { display: grid; gap: 12px; }
+
+/* Photo agrandie */
+.zoom {
+  position: fixed; inset: 0; z-index: 30; background: rgba(0, 0, 0, .92); display: flex; align-items: center; justify-content: center;
+  padding: max(16px, env(safe-area-inset-top, 0px)) max(16px, env(safe-area-inset-right, 0px)) max(16px, env(safe-area-inset-bottom, 0px)) max(16px, env(safe-area-inset-left, 0px));
+  cursor: zoom-out;
+}
+.zoom img { max-width: 100%; max-height: 100%; object-fit: contain; border-radius: 8px; }
+.zoom-x {
+  position: absolute; top: calc(12px + env(safe-area-inset-top, 0px)); right: calc(16px + env(safe-area-inset-right, 0px));
+  color: #fff; background: rgba(255, 255, 255, .18); border-radius: 999px; padding: 8px 14px; font: 600 15px var(--font-body);
+}
+
+.toast {
+  position: fixed; left: 50%; transform: translateX(-50%); bottom: calc(16px + env(safe-area-inset-bottom, 0px));
+  max-width: calc(100% - 32px); background: var(--ink); color: var(--bg); padding: 10px 16px;
+  border-radius: 10px; font-weight: 500; z-index: 40; text-align: center;
+}
+
+@media (max-width: 460px) {
+  .fields, .two { grid-template-columns: 1fr; }
+  h1 { font-size: 36px; }
+}
+@media (prefers-reduced-motion: reduce) { * { transition: none !important; animation: none !important; } }
+</style>
+
+<div class="app">
+  <header>
+    <div>
+      <h1>Stock du bus</h1>
+      <p class="sub" id="sub"></p>
+    </div>
+    <button type="button" class="btn primary" id="addBtn" data-action="add" aria-expanded="false">+ Ajouter</button>
+  </header>
+  <p class="notice" id="notice" hidden></p>
+  <section class="bk" id="bkBanner" role="status" hidden></section>
+
+  <section class="panel" id="addBox" hidden aria-label="Nouvel article">
+    <form id="addForm">
+      <label for="f-nom"><span id="f-nom-lbl">Nom</span>
+        <input id="f-nom" type="text" autocomplete="off" placeholder="Ex. Fusibles 5×20 mm 2 A">
+      </label>
+      <div class="newphoto">
+        <img id="f-prev" alt="Aperçu de la photo" hidden>
+        <div class="photo-pick" id="f-photo-pick">
+          <label class="addphoto" id="f-photo-lbl" for="f-photo-cam">Prendre une photo</label>
+          <label class="addphoto" id="f-photo-lbl2" for="f-photo">Choisir dans la galerie</label>
+        </div>
+        <input id="f-photo-cam" class="sr" type="file" accept="image/*" capture="environment">
+        <input id="f-photo" class="sr" type="file" accept="image/*">
+        <button type="button" class="btn" id="f-photo-del" data-action="new-photo-del" hidden>Retirer la photo</button>
+      </div>
+      <label for="f-cat">Catégorie
+        <select id="f-cat"></select>
+      </label>
+      <div class="fields" id="f-attrs" hidden></div>
+      <div class="two">
+        <label for="f-type">Type
+          <select id="f-type">
+            <option value="unite">Compté à l’unité</option>
+            <option value="niveau">Visserie ou vrac (niveau)</option>
+          </select>
+        </label>
+        <label for="f-fourn">Fournisseur
+          <input id="f-fourn" type="text" autocomplete="off" placeholder="Facultatif">
+        </label>
+        <label for="f-ref">Référence
+          <input id="f-ref" type="text" autocomplete="off" placeholder="Facultatif">
+        </label>
+      </div>
+      <div class="two" id="f-unit-fields">
+        <label for="f-qty">Quantité en stock
+          <input id="f-qty" type="number" inputmode="numeric" min="0" step="1" value="0">
+        </label>
+        <label for="f-seuil">Seuil d’alerte
+          <input id="f-seuil" type="number" inputmode="numeric" min="0" step="1" value="1">
+        </label>
+      </div>
+      <div class="ed-actions">
+        <button type="button" class="btn" data-action="add-cancel">Annuler</button>
+        <button type="submit" class="btn primary">Ajouter</button>
+      </div>
+    </form>
+  </section>
+
+  <section class="panel" id="catBox" hidden aria-label="Nouvelle catégorie">
+    <form id="catForm">
+      <label for="c-new">Nouvelle catégorie
+        <input id="c-new" type="text" autocomplete="off" placeholder="Ex. Câbles">
+      </label>
+      <button type="submit" class="btn primary">Ajouter la catégorie</button>
+    </form>
+  </section>
+
+  <section class="panel snaps" id="snapBox" aria-label="Sauvegardes automatiques" hidden></section>
+
+  <section id="banner" aria-live="polite" hidden></section>
+  <div class="toolbar" id="toolbar" hidden></div>
+  <main id="list"></main>
+  <footer class="backup" id="backup">
+    <button type="button" class="linkbtn" data-action="export">Sauvegarder mes données</button>
+    <button type="button" class="linkbtn" id="snapLink" data-action="snaps" hidden>Copies automatiques</button>
+    <label class="linkbtn" for="import-file">Restaurer une sauvegarde</label>
+    <input id="import-file" class="sr" type="file" accept=".json,application/json">
+  </footer>
+</div>
+
+<div class="zoom" id="zoom" data-action="zoom-close" role="dialog" aria-label="Photo agrandie" hidden>
+  <img id="zoomImg" alt="Photo agrandie">
+  <span class="zoom-x">Fermer ✕</span>
+</div>
+<div class="toast" id="toast" role="status" hidden></div>
+
+<script>
+(function () {
+  'use strict';
+  var $ = function (s) { return document.querySelector(s); };
+  var LEVELS = [['plein', 'Plein'], ['moitie', 'Moitié'], ['bas', 'Bas']];
+  var LEVEL_LABEL = { plein: 'Plein', moitie: 'Moitié', bas: 'Bas' };
+  var TYPE_GROUPS = [
+    { type: 'unite', title: 'À l’unité' },
+    { type: 'niveau', title: 'Visserie et vrac' }
+  ];
+  var KEEP_CONFIRM = { 'del': 1, 'del-examples': 1, 'photo-del': 1, 'cat-del': 1, 'cat-field-del': 1, 'snap-restore': 1 };
+  /* Sauvegardes : copies automatiques du jour (dans l'appareil) + rappel d'export vers Fichiers/OneDrive */
+  var SNAP_KEY = 'stock-bus-snaps-v1';       // { "2026-10-26": { t, articles, categories }, ... }
+  var LAST_EXPORT_KEY = 'stock-bus-lastexport-v1';
+  var SNAP_KEEP = 7;                          // nombre de copies conservées
+  var EXPORT_EVERY = 24 * 3600 * 1000;        // rappel si le dernier export a plus de 24 h
+  var LIST_KEY = { articles: 'items', categories: 'cats' };
+  var state = {
+    items: [], cats: [], ready: false, catsReady: false, filter: 'all', catFilter: '', confirm: null, error: false,
+    view: 'stock', adding: false, open: null, qty: null, editFiche: null, excluded: {}, downloads: null, zoom: null,
+    newPhoto: null, catOpen: null, addSig: null, snapOpen: false
+  };
+  var dirty = new Map();   // "collection:id" -> { timer, patch, inflight } : modifications en cours d'envoi
+  var chains = new Map();  // "collection:id" -> promesse : une seule écriture à la fois par document
+  var store = null;
+
+  /* ---------- utilitaires ---------- */
+  function h(tag, attrs) {
+    var el = document.createElement(tag);
+    var a = attrs || {};
+    Object.keys(a).forEach(function (k) {
+      var v = a[k];
+      if (v === false || v == null) return;
+      if (k === 'class') el.className = v;
+      else if (k === 'text') el.textContent = v;
+      else el.setAttribute(k, v === true ? '' : v);
+    });
+    for (var i = 2; i < arguments.length; i++) {
+      [].concat(arguments[i]).forEach(function (kid) {
+        if (kid == null || kid === false) return;
+        el.append(kid.nodeType ? kid : document.createTextNode(String(kid)));
+      });
+    }
+    return el;
+  }
+  function num(v) { var n = Number(v); return isFinite(n) ? n : 0; }
+  function nameOf(x) { return x.type ? displayName(x) : String(x.nom || ''); }
+  function byName(a, b) { return nameOf(a).localeCompare(nameOf(b), 'fr', { numeric: true }); }
+  function isLevel(a) { return a.type === 'niveau'; }
+  function isAlert(a) { return isLevel(a) ? a.etat === 'bas' : num(a.quantite) <= num(a.seuil); }
+  function find(id) { return state.items.find(function (i) { return i.id === id; }); }
+  function newId(prefix) { return prefix + Date.now().toString(36).slice(-4) + Math.random().toString(36).slice(2, 6); }
+
+  var toastTimer;
+  function toast(msg) {
+    var t = $('#toast');
+    t.textContent = msg; t.hidden = false;
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(function () { t.hidden = true; }, 3500);
+  }
+  function notifyError(e) {
+    var c = e && e.code;
+    toast(c === 'quota_exceeded' ? 'Limite de stockage atteinte.'
+      : c === 'invalid_argument' ? 'Modification refusée pour ton niveau d’accès.'
+      : 'Enregistrement impossible. Réessaie.');
+  }
+
+  /* ---------- stockage : base partagée (Claude) ou mémoire de cet appareil ---------- */
+  function makeDbStore(db) {
+    function col(n) { return db.collection(n); }
+    return {
+      local: false,
+      subscribe: function (name, fn, onError) {
+        col(name).onSnapshot(function (snap) {
+          fn(snap.docs.map(function (d) { return Object.assign({ id: d.id }, d.data()); }));
+        }, onError);
+      },
+      add: function (name, data) { return col(name).add(data).then(function (r) { return r.id; }); },
+      update: function (name, id, patch) { return col(name).doc(id).update(patch); },
+      remove: function (name, id) { return col(name).doc(id).delete(); },
+      putMany: async function (name, list) {
+        for (var i = 0; i < list.length; i++) {
+          var x = Object.assign({}, list[i]), id = x.id;
+          delete x.id;
+          await col(name).doc(id).set(x);
+        }
+      }
+    };
+  }
+  function makeLocalStore() {
+    var KEYS = { articles: 'stock-bus-v1', categories: 'stock-bus-cats-v1' };
+    var data = {}, cbs = {};
+    Object.keys(KEYS).forEach(function (n) {
+      var v = [];
+      try { v = JSON.parse(localStorage.getItem(KEYS[n]) || '[]'); } catch (e) { v = []; }
+      data[n] = Array.isArray(v) ? v : [];
+    });
+    function save(n) {
+      try { localStorage.setItem(KEYS[n], JSON.stringify(data[n])); }
+      catch (e) { toast('Mémoire de l’appareil pleine : les dernières modifications ne sont pas enregistrées. Sauvegarde tes données et retire des photos.'); }
+    }
+    function emit(n) { if (cbs[n]) cbs[n](data[n].slice()); }
+    return {
+      local: true,
+      subscribe: function (name, fn) { cbs[name] = fn; fn(data[name].slice()); },
+      add: function (name, d) {
+        var id = 'a' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
+        data[name].push(Object.assign({ id: id }, d)); save(name); emit(name);
+        return Promise.resolve(id);
+      },
+      update: function (name, id, patch) {
+        data[name] = data[name].map(function (i) { return i.id === id ? Object.assign({}, i, patch) : i; });
+        save(name); return Promise.resolve();
+      },
+      remove: function (name, id) {
+        data[name] = data[name].filter(function (i) { return i.id !== id; }); save(name);
+        return Promise.resolve();
+      },
+      putMany: function (name, list) {
+        list.forEach(function (n) {
+          var k = data[name].findIndex(function (x) { return x.id === n.id; });
+          if (k >= 0) data[name][k] = Object.assign({}, data[name][k], n); else data[name].push(n);
+        });
+        save(name); emit(name);
+        return Promise.resolve();
+      },
+      /* Remplace toute la liste (restauration d'une copie). Les photos actuelles sont conservées : les copies n'en contiennent pas. */
+      replaceAll: function (name, list) {
+        var old = {};
+        data[name].forEach(function (i) { old[i.id] = i; });
+        data[name] = list.map(function (n) {
+          var o = old[n.id];
+          return name === 'articles' && o && o.photoData && !n.photoData
+            ? Object.assign({}, n, { photoData: o.photoData }) : Object.assign({}, n);
+        });
+        save(name); emit(name);
+        return Promise.resolve();
+      }
+    };
+  }
+
+  /* ---------- modifications ---------- */
+  function applyList(name, list) {
+    var key = LIST_KEY[name];
+    var local = new Map(state[key].map(function (i) { return [i.id, i]; }));
+    state[key] = list.map(function (i) {
+      return dirty.has(name + ':' + i.id) && local.has(i.id) ? local.get(i.id) : Object.assign({}, i);
+    });
+    if (name === 'articles') state.ready = true; else state.catsReady = true;
+    takeSnapshot();
+    render();
+  }
+  function change(name, id, patch, quiet) {
+    var it = state[LIST_KEY[name]].find(function (i) { return i.id === id; });
+    if (!it) return;
+    Object.assign(it, patch);
+    var k = name + ':' + id;
+    var d = dirty.get(k) || { patch: {}, inflight: 0, timer: null };
+    clearTimeout(d.timer);
+    Object.assign(d.patch, patch);
+    d.timer = setTimeout(function () { flush(name, id); }, 300);
+    dirty.set(k, d);
+    if (!quiet) render();
+  }
+  function flush(name, id) {
+    var k = name + ':' + id;
+    var d = dirty.get(k);
+    if (!d) return;
+    var patch = d.patch;
+    d.patch = {}; d.timer = null; d.inflight += 1;
+    var next = (chains.get(k) || Promise.resolve())
+      .then(function () { return store.update(name, id, patch); })
+      .catch(notifyError)
+      .then(function () {
+        d.inflight -= 1;
+        if (!d.timer && !d.inflight) dirty.delete(k);
+      });
+    chains.set(k, next);
+  }
+  function changeItem(id, patch, quiet) { change('articles', id, patch, quiet); }
+  function changeCat(id, patch, quiet) { change('categories', id, patch, quiet); }
+  function removeDoc(name, id) {
+    var k = name + ':' + id, d = dirty.get(k);
+    if (d) { clearTimeout(d.timer); dirty.delete(k); }
+    var key = LIST_KEY[name];
+    state[key] = state[key].filter(function (i) { return i.id !== id; });
+    return Promise.resolve(store.remove(name, id)).catch(notifyError);
+  }
+  function removeItem(id) { return removeDoc('articles', id); }
+  async function removeExamples() {
+    var ids = state.items.filter(function (i) { return i.exemple; }).map(function (i) { return i.id; });
+    for (var k = 0; k < ids.length; k++) await removeItem(ids[k]);
+    toast('Articles d’exemple supprimés');
+  }
+
+  /* ---------- catégories ---------- */
+  function cat(id) { return id ? state.cats.find(function (c) { return c.id === id; }) : null; }
+  function topCats() { return state.cats.filter(function (c) { return !c.parent; }).sort(byName); }
+  function subsOf(id) { return state.cats.filter(function (c) { return c.parent === id; }).sort(byName); }
+  function topOf(id) {
+    var c = cat(id);
+    if (!c) return null;
+    return (c.parent && cat(c.parent)) || c;
+  }
+  function catLabel(id) {
+    var c = cat(id);
+    if (!c) return '';
+    var p = c.parent && cat(c.parent);
+    return p ? p.nom + ' › ' + c.nom : c.nom;
+  }
+  function subName(a) { var c = cat(a.catId); return c && c.parent ? c.nom : ''; }
+  function baseName(a) { var c = cat(a.catId); return a.nom || subName(a) || (c && c.nom) || 'Sans nom'; }
+  function displayName(a) { return a.nom || attrText(a) || baseName(a); }
+  function fieldsFor(id) {
+    var c = cat(id);
+    if (!c) return [];
+    var p = c.parent && cat(c.parent);
+    return ((p && p.champs) || []).concat(c.champs || []);
+  }
+  function inCat(a, id) {
+    if (!a.catId) return false;
+    if (a.catId === id) return true;
+    var c = cat(a.catId);
+    return !!(c && c.parent === id);
+  }
+  function countIn(id) { return state.items.filter(function (a) { return inCat(a, id); }).length; }
+  function attrKey(f) { return 'a_' + f.id; }
+  function attrPairs(a) {
+    return fieldsFor(a.catId).map(function (f) {
+      var v = a[attrKey(f)];
+      return { f: f, v: v == null ? '' : String(v).trim() };
+    }).filter(function (p) { return p.v; });
+  }
+  function attrText(a) { return attrPairs(a).map(function (p) { return p.f.nom + ' ' + p.v; }).join(' · '); }
+  function valuesFor(f) {
+    var s = {};
+    state.items.forEach(function (i) { var v = i[attrKey(f)]; if (v) s[v] = 1; });
+    return Object.keys(s).sort(function (x, y) { return x.localeCompare(y, 'fr'); });
+  }
+  function catOptions(sel, noneLabel) {
+    var opts = [h('option', { value: '', selected: !sel, text: noneLabel })];
+    topCats().forEach(function (t) {
+      opts.push(h('option', { value: t.id, selected: sel === t.id, text: t.nom }));
+      subsOf(t.id).forEach(function (s) {
+        opts.push(h('option', { value: s.id, selected: sel === s.id, text: t.nom + ' › ' + s.nom }));
+      });
+    });
+    return opts;
+  }
+  function dataLists(prefix, fields) {
+    return fields.map(function (f) {
+      return h('datalist', { id: prefix + f.id }, valuesFor(f).map(function (v) { return h('option', { value: v }); }));
+    });
+  }
+
+  /* ---------- photo ---------- */
+  function shrink(file, max, q) {
+    return new Promise(function (resolve, reject) {
+      var img = new Image(), url = URL.createObjectURL(file);
+      img.onload = function () {
+        var s = Math.min(1, max / Math.max(img.width, img.height));
+        var c = document.createElement('canvas');
+        c.width = Math.round(img.width * s); c.height = Math.round(img.height * s);
+        c.getContext('2d').drawImage(img, 0, 0, c.width, c.height);
+        URL.revokeObjectURL(url);
+        c.toBlob(function (b) { if (b) resolve(b); else reject(new Error('conversion impossible')); }, 'image/jpeg', q || 0.8);
+      };
+      img.onerror = function () { URL.revokeObjectURL(url); reject(new Error('image illisible, essaie un JPEG ou un PNG')); };
+      img.src = url;
+    });
+  }
+  function toDataUrl(blob) {
+    return new Promise(function (resolve, reject) {
+      var r = new FileReader();
+      r.onload = function () { resolve(String(r.result)); };
+      r.onerror = function () { reject(new Error('lecture impossible')); };
+      r.readAsDataURL(blob);
+    });
+  }
+  async function makePhotoData(file) {
+    var url = await toDataUrl(await shrink(file, 960, 0.72));
+    if (url.length > 190000) url = await toDataUrl(await shrink(file, 720, 0.65));
+    if (url.length > 215000) url = await toDataUrl(await shrink(file, 480, 0.6));
+    if (url.length > 220000) throw new Error('photo trop lourde');
+    return url;
+  }
+  async function uploadPhoto(id, file) {
+    if (!file) return;
+    toast('Enregistrement de la photo…');
+    try {
+      changeItem(id, { photoData: await makePhotoData(file) });
+      toast('Photo enregistrée');
+    } catch (err) {
+      toast('Photo non enregistrée : ' + ((err && err.message) || 'erreur inconnue') + '.');
+    }
+  }
+  function showNewPhoto() {
+    var p = $('#f-prev');
+    p.hidden = !state.newPhoto;
+    if (state.newPhoto) p.src = state.newPhoto;
+    $('#f-photo-del').hidden = !state.newPhoto;
+    $('#f-photo-lbl').textContent = state.newPhoto ? 'Reprendre la photo' : 'Prendre une photo';
+    $('#f-photo-lbl2').textContent = state.newPhoto ? 'Autre photo de la galerie' : 'Choisir dans la galerie';
+    $('#f-photo-pick').classList.toggle('has', !!state.newPhoto);
+  }
+  async function pickNewPhoto(file) {
+    if (!file) return;
+    toast('Préparation de la photo…');
+    try {
+      state.newPhoto = await makePhotoData(file);
+      showNewPhoto();
+      toast('Photo prête');
+    } catch (err) {
+      toast('Photo non ajoutée : ' + ((err && err.message) || 'erreur inconnue') + '.');
+    }
+  }
+  function resetNewPhoto() { state.newPhoto = null; showNewPhoto(); }
+
+  /* ---------- formulaire d'ajout : catégorie et champs ---------- */
+  function syncAddForm() {
+    var sel = $('#f-cat');
+    var catsSig = state.cats.map(function (c) {
+      return c.id + ':' + c.nom + ':' + (c.parent || '') + ':' + (c.champs || []).map(function (f) { return f.id + f.nom; }).join(',');
+    }).join('|');
+    if (state.addSig === catsSig + '#' + sel.value && sel.options.length) return;
+    var cur = sel.value;
+    var saved = {};
+    [].forEach.call(document.querySelectorAll('#f-attrs input[data-fid]'), function (i) { saved[i.dataset.fid] = i.value; });
+    sel.replaceChildren.apply(sel, catOptions(cur, 'Sans catégorie'));
+    var fields = fieldsFor(sel.value);
+    $('#f-nom-lbl').textContent = fields.length ? 'Nom (facultatif)' : 'Nom';
+    var nodes = [];
+    fields.forEach(function (f) {
+      nodes.push(h('label', { for: 'f-a-' + f.id }, f.nom,
+        h('input', { id: 'f-a-' + f.id, type: 'text', autocomplete: 'off', 'data-fid': f.id, list: 'dla-' + f.id, value: saved[f.id] || '' })));
+    });
+    dataLists('dla-', fields).forEach(function (d) { nodes.push(d); });
+    var box = $('#f-attrs');
+    box.replaceChildren.apply(box, nodes);
+    box.hidden = !fields.length;
+    state.addSig = catsSig + '#' + sel.value;
+  }
+  function resetAddForm() {
+    $('#addForm').reset();
+    $('#f-cat').value = '';
+    $('#f-attrs').replaceChildren();
+    state.addSig = null;
+    syncType();
+    resetNewPhoto();
+  }
+
+  /* ---------- affichage : liste ---------- */
+  function stockButton(a) {
+    if (isLevel(a)) {
+      var lv = a.etat || 'plein';
+      return h('button', { type: 'button', class: 'qtybtn lvl-' + lv, 'data-action': 'qty', 'data-id': a.id,
+        'aria-label': 'Modifier le niveau de ' + displayName(a) + ', actuellement ' + (LEVEL_LABEL[lv] || lv) },
+        h('span', { class: 'q word', text: LEVEL_LABEL[lv] || 'Plein' }), h('span', { class: 'ql', text: 'niveau' }));
+    }
+    return h('button', { type: 'button', class: 'qtybtn', 'data-action': 'qty', 'data-id': a.id,
+      'aria-label': 'Modifier le stock de ' + displayName(a) + ', actuellement ' + num(a.quantite) },
+      h('span', { class: 'q', text: String(num(a.quantite)) }), h('span', { class: 'ql', text: 'en stock' }));
+  }
+  function edActions() {
+    return h('div', { class: 'ed-actions' },
+      h('button', { type: 'button', class: 'btn', 'data-action': 'ed-cancel', text: 'Annuler' }),
+      h('button', { type: 'button', class: 'btn primary', 'data-action': 'ed-ok', text: 'Valider' }));
+  }
+  function qtyEditor(a) {
+    var d = state.qty;
+    if (isLevel(a)) {
+      return h('div', { class: 'sheet' },
+        h('p', { class: 'ed-note', text: 'Niveau de la boîte' }),
+        h('div', { class: 'ed-levels', role: 'group', 'aria-label': 'Niveau de ' + displayName(a) },
+          LEVELS.map(function (l) {
+            return h('button', { type: 'button', 'data-action': 'ed-level', 'data-val': l[0], 'aria-pressed': String(d.value === l[0]), text: l[1] });
+          })),
+        edActions());
+    }
+    return h('div', { class: 'sheet' },
+      h('p', { class: 'ed-note', text: 'Stock actuel : ' + num(a.quantite) }),
+      h('div', { class: 'ed-step' },
+        h('button', { type: 'button', class: 'step big', 'data-action': 'ed-dec', 'aria-label': 'Retirer 1', text: '−' }),
+        h('input', { id: 'ed-val', class: 'ed-input', type: 'number', inputmode: 'numeric', min: '0', step: '1', value: String(d.value), 'aria-label': 'Nouveau stock' }),
+        h('button', { type: 'button', class: 'step big plus', 'data-action': 'ed-inc', 'aria-label': 'Ajouter 1', text: '+' })),
+      edActions());
+  }
+
+  function suppliers() {
+    var s = {};
+    state.items.forEach(function (i) { if (i.fournisseur) s[i.fournisseur] = 1; });
+    return Object.keys(s).sort(function (x, y) { return x.localeCompare(y, 'fr'); });
+  }
+  function field(a, key, label, o) {
+    o = o || {};
+    var fid = 'd-' + a.id + '-' + key;
+    return h('label', { class: o.wide ? 'wide' : null, for: fid }, label,
+      h('input', { id: fid, type: o.num ? 'number' : 'text', inputmode: o.num ? 'numeric' : null, min: o.num ? '0' : null,
+        step: o.num ? '1' : null, value: a[key] == null ? '' : String(a[key]), list: o.list || null,
+        autocomplete: 'off', placeholder: o.ph || null, 'data-field': key, 'data-id': a.id }));
+  }
+  function ficheView(a) {
+    var level = isLevel(a), src = a.photoData || '';
+    var rows = [['Catégorie', catLabel(a.catId)]];
+    fieldsFor(a.catId).forEach(function (f) { rows.push([f.nom, a[attrKey(f)]]); });
+    rows.push(['Fournisseur', a.fournisseur], ['Référence fournisseur', a.reference], ['N° de série', a.serie], ['Emplacement', a.emplacement]);
+    if (!level) rows.push(['Seuil d’alerte', num(a.seuil)]);
+    rows.push([level ? 'Boîtes à commander' : 'Quantité à commander', num(a.qte_cmd) > 0 ? num(a.qte_cmd) : '']);
+    rows.push(['Notes', a.notes]);
+    var facts = [];
+    rows.forEach(function (r) {
+      facts.push(h('dt', { text: r[0] }), h('dd', { text: r[1] === '' || r[1] == null ? '—' : String(r[1]) }));
+    });
+    return h('div', { class: 'sheet' },
+      src ? h('div', { class: 'photo' }, h('img', { src: src, alt: 'Photo : ' + displayName(a) + ' (toucher pour agrandir)', 'data-action': 'zoom', 'data-id': a.id })) : null,
+      h('dl', { class: 'facts' }, facts),
+      h('button', { type: 'button', class: 'btn', 'data-action': 'fiche-edit', 'data-id': a.id, text: 'Modifier la fiche' }));
+  }
+  function fiche(a) { return state.editFiche === a.id ? ficheEdit(a) : ficheView(a); }
+  function ficheEdit(a) {
+    var level = isLevel(a), src = a.photoData || '';
+    var photo = src
+      ? h('div', { class: 'photo' },
+          h('img', { src: src, alt: 'Photo : ' + displayName(a) + ' (toucher pour agrandir)', 'data-action': 'zoom', 'data-id': a.id }),
+          h('div', { class: 'photo-actions' },
+            h('label', { class: 'btn filebtn', for: 'phc-' + a.id }, 'Reprendre une photo'),
+            h('label', { class: 'btn filebtn', for: 'ph-' + a.id }, 'Galerie'),
+            h('button', { type: 'button', class: 'btn danger' + (state.confirm === 'photo:' + a.id ? ' confirm' : ''), 'data-action': 'photo-del', 'data-id': a.id,
+              text: state.confirm === 'photo:' + a.id ? 'Confirmer le retrait' : 'Retirer la photo' })))
+      : h('div', { class: 'photo-pick' },
+          h('label', { class: 'addphoto', for: 'phc-' + a.id }, 'Prendre une photo'),
+          h('label', { class: 'addphoto', for: 'ph-' + a.id }, 'Choisir dans la galerie'));
+    var del = state.confirm === a.id;
+    var fields = fieldsFor(a.catId);
+    return h('div', { class: 'sheet' },
+      photo,
+      h('input', { id: 'phc-' + a.id, class: 'sr', type: 'file', accept: 'image/*', capture: 'environment', 'data-photo': a.id }),
+      h('input', { id: 'ph-' + a.id, class: 'sr', type: 'file', accept: 'image/*', 'data-photo': a.id }),
+      h('datalist', { id: 'suppliers' }, suppliers().map(function (s) { return h('option', { value: s }); })),
+      dataLists('dl-', fields),
+      h('div', { class: 'fields' },
+        field(a, 'nom', fields.length ? 'Nom (facultatif)' : 'Nom', { wide: true }),
+        h('label', { class: 'wide', for: 'd-' + a.id + '-catId' }, 'Catégorie',
+          h('select', { id: 'd-' + a.id + '-catId', 'data-field': 'catId', 'data-id': a.id }, catOptions(a.catId || '', 'Sans catégorie'))),
+        fields.map(function (f) { return field(a, attrKey(f), f.nom, { list: 'dl-' + f.id }); }),
+        field(a, 'fournisseur', 'Fournisseur', { list: 'suppliers', ph: 'Ex. Würth' }),
+        field(a, 'reference', 'Référence fournisseur'),
+        field(a, 'serie', 'N° de série'),
+        field(a, 'emplacement', 'Emplacement', { ph: 'Ex. Casier 3' }),
+        level ? null : field(a, 'seuil', 'Seuil d’alerte', { num: true }),
+        field(a, 'qte_cmd', level ? 'Boîtes à commander' : 'Quantité à commander', { num: true, ph: '1' }),
+        field(a, 'notes', 'Notes', { wide: true })),
+      h('button', { type: 'button', class: 'btn primary', 'data-action': 'fiche-done', 'data-id': a.id, text: 'Terminer' }),
+      h('button', { type: 'button', class: 'btn danger' + (del ? ' confirm' : ''), 'data-action': 'del', 'data-id': a.id,
+        text: del ? 'Confirmer la suppression' : 'Supprimer l’article' }));
+  }
+
+  function row(a) {
+    var alert = isAlert(a);
+    var open = state.open === a.id;
+    var editing = !!(state.qty && state.qty.id === a.id);
+    var bits = [];
+    if (subName(a)) bits.push(subName(a));
+    if (a.reference) bits.push('Réf. ' + a.reference);
+    if (a.fournisseur) bits.push(a.fournisseur);
+    if (a.emplacement) bits.push(a.emplacement);
+    var attrs = attrText(a);
+    var main = h('button', { type: 'button', class: 'main', 'data-action': 'open', 'data-id': a.id, 'aria-expanded': String(open) },
+      a.photoData ? h('img', { class: 'thumb', src: a.photoData, alt: '' }) : null,
+      h('span', { class: 'txt' },
+        h('span', { class: 'name', text: displayName(a) }),
+        h('span', { class: 'meta' },
+          bits.length ? h('span', { text: bits.join(' · ') }) : null,
+          alert ? h('span', { class: 'badge', text: 'À recommander' }) : null,
+          a.exemple ? h('span', { class: 'tag', text: 'exemple' }) : null),
+        attrs && a.nom ? h('span', { class: 'attrs', text: attrs }) : null));
+    return h('li', { class: 'row' + (alert ? ' alert' : '') },
+      main, stockButton(a), editing ? qtyEditor(a) : null, open ? fiche(a) : null);
+  }
+
+  function visibleItems() {
+    var items = state.items;
+    if (state.filter === 'alert') items = items.filter(isAlert);
+    if (state.catFilter) items = items.filter(function (a) { return inCat(a, state.catFilter); });
+    return items;
+  }
+  function itemCmp(a, b) {
+    var c = subName(a).localeCompare(subName(b), 'fr');
+    return c || byName(a, b);
+  }
+  function groupItems(items) {
+    if (!state.cats.length) {
+      return TYPE_GROUPS.map(function (g) {
+        return { title: g.title, items: items.filter(function (a) { return (isLevel(a) ? 'niveau' : 'unite') === g.type; }).sort(byName) };
+      }).filter(function (g) { return g.items.length; });
+    }
+    var map = {};
+    items.forEach(function (a) {
+      var t = a.catId ? topOf(a.catId) : null;
+      var k = t ? t.id : '';
+      (map[k] = map[k] || []).push(a);
+    });
+    return Object.keys(map).sort(function (x, y) {
+      if (!x) return 1; if (!y) return -1; return byName(cat(x), cat(y));
+    }).map(function (k) {
+      return { title: k ? cat(k).nom : 'Sans catégorie', items: map[k].sort(itemCmp) };
+    });
+  }
+
+  function renderList() {
+    var list = $('#list');
+    if (!state.ready || !state.catsReady) { list.replaceChildren(h('p', { class: 'empty', text: 'Chargement du stock…' })); return; }
+    var all = state.items;
+    if (!all.length) {
+      list.replaceChildren(h('p', { class: 'empty', text: 'Aucun article pour l’instant. Touche « + Ajouter » pour commencer.' }));
+      return;
+    }
+    var shown = visibleItems();
+    var nodes = [];
+    if (!shown.length) nodes.push(h('p', { class: 'empty', text: state.filter === 'alert' ? 'Rien à recommander pour le moment.' : 'Aucun article dans cette catégorie.' }));
+    groupItems(shown).forEach(function (g) {
+      nodes.push(h('section', { class: 'group' },
+        h('div', { class: 'group-head' }, h('h2', { text: g.title }), h('span', { class: 'hint', text: String(g.items.length) })),
+        h('ul', { class: 'rows' }, g.items.map(row))));
+    });
+    if (all.some(function (i) { return i.exemple; })) {
+      nodes.push(h('button', { type: 'button', class: 'linkbtn', 'data-action': 'del-examples',
+        text: state.confirm === 'examples' ? 'Confirmer : supprimer les articles d’exemple' : 'Supprimer les articles d’exemple' }));
+    }
+    list.replaceChildren.apply(list, nodes);
+  }
+
+  function renderBanner() {
+    var box = $('#banner');
+    if (!state.ready || !state.items.length) { box.hidden = true; return; }
+    box.hidden = false;
+    var n = state.items.filter(isAlert).length;
+    if (!n) { box.className = 'banner ok'; box.replaceChildren(h('span', { text: 'Tout est en stock' })); return; }
+    box.className = 'banner alert';
+    box.replaceChildren(
+      h('div', {}, h('span', { class: 'n', text: String(n) }), h('span', { class: 't', text: 'à recommander' })),
+      h('button', { type: 'button', class: 'btn primary', 'data-action': 'order', text: 'Préparer la commande' }));
+  }
+
+  function renderToolbar() {
+    var box = $('#toolbar');
+    if (!state.ready) { box.hidden = true; return; }
+    box.hidden = false;
+    var n = state.items.length, k = state.items.filter(isAlert).length;
+    function chip(v, label) { return h('button', { type: 'button', class: 'chip', 'data-action': 'filter', 'data-val': v, 'aria-pressed': String(state.filter === v), text: label }); }
+    var nodes = [];
+    if (n) nodes.push(h('div', { class: 'filters', role: 'group', 'aria-label': 'Filtrer la liste' }, chip('all', 'Tout (' + n + ')'), chip('alert', 'À recommander (' + k + ')')));
+    var tools = [];
+    if (state.cats.length) tools.push(h('select', { id: 'catFilter', 'aria-label': 'Filtrer par catégorie' }, catOptions(state.catFilter, 'Toutes les catégories')));
+    tools.push(h('button', { type: 'button', class: 'btn', 'data-action': 'cats', text: 'Catégories' }));
+    nodes.push(h('div', { class: 'tools' }, tools));
+    box.replaceChildren.apply(box, nodes);
+  }
+
+  /* ---------- gestion des catégories ---------- */
+  function catSheet(c) {
+    var top = !c.parent;
+    var own = c.champs || [];
+    var inherited = top ? [] : fieldsFor(c.id).filter(function (f) { return !own.some(function (o) { return o.id === f.id; }); });
+    var parent = c.parent && cat(c.parent);
+    var delC = state.confirm === 'cat:' + c.id;
+    return h('div', { class: 'sheet' },
+      h('label', { for: 'cn-' + c.id }, 'Nom',
+        h('input', { id: 'cn-' + c.id, type: 'text', autocomplete: 'off', value: c.nom || '', 'data-catfield': 'nom', 'data-id': c.id })),
+      h('p', { class: 'sub-h', text: 'Champs à renseigner pour chaque article' }),
+      inherited.length ? h('p', { class: 'ed-note', text: 'Repris de « ' + (parent ? parent.nom : '') + ' » : ' + inherited.map(function (f) { return f.nom; }).join(', ') }) : null,
+      own.length
+        ? h('ul', { class: 'flist' }, own.map(function (f) {
+            var fc = state.confirm === 'field:' + c.id + ':' + f.id;
+            return h('li', {}, h('span', { text: f.nom }),
+              h('button', { type: 'button', class: 'btn danger' + (fc ? ' confirm' : ''), 'data-action': 'cat-field-del', 'data-id': c.id, 'data-val': f.id,
+                'aria-label': 'Retirer le champ ' + f.nom, text: fc ? 'Confirmer' : 'Retirer' }));
+          }))
+        : h('p', { class: 'ed-note', text: own.length || inherited.length ? '' : 'Aucun champ pour l’instant.' }),
+      h('div', { class: 'inline' },
+        h('input', { id: 'nf-' + c.id, type: 'text', autocomplete: 'off', placeholder: 'Ex. Longueur, Nombre de pôles', 'aria-label': 'Nouveau champ' }),
+        h('button', { type: 'button', class: 'btn', 'data-action': 'cat-field-add', 'data-id': c.id, text: 'Ajouter le champ' })),
+      top ? h('p', { class: 'sub-h', text: 'Sous-catégories' }) : null,
+      top ? h('div', { class: 'inline' },
+        h('input', { id: 'ns-' + c.id, type: 'text', autocomplete: 'off', placeholder: 'Ex. Câble détecteur', 'aria-label': 'Nouvelle sous-catégorie' }),
+        h('button', { type: 'button', class: 'btn', 'data-action': 'cat-sub-add', 'data-id': c.id, text: 'Ajouter' })) : null,
+      h('button', { type: 'button', class: 'btn danger' + (delC ? ' confirm' : ''), 'data-action': 'cat-del', 'data-id': c.id,
+        text: delC ? 'Confirmer la suppression' : (top ? 'Supprimer la catégorie' : 'Supprimer la sous-catégorie') }));
+  }
+  function catRow(c, isSub) {
+    var open = state.catOpen === c.id;
+    var own = c.champs || [];
+    var n = countIn(c.id);
+    var bits = [n + (n > 1 ? ' articles' : ' article')];
+    if (own.length) bits.push('Champs : ' + own.map(function (f) { return f.nom; }).join(', '));
+    return h('li', { class: 'catrow' + (isSub ? ' sub' : '') },
+      h('button', { type: 'button', class: 'main', 'data-action': 'cat-open', 'data-id': c.id, 'aria-expanded': String(open) },
+        h('span', { class: 'txt' },
+          h('span', { class: 'name', text: (isSub ? '↳ ' : '') + (c.nom || 'Sans nom') }),
+          h('span', { class: 'meta', text: bits.join(' · ') }))),
+      open ? catSheet(c) : null);
+  }
+  function renderCats() {
+    var list = $('#list');
+    var nodes = [
+      h('div', { class: 'order-head' }, h('h2', { text: 'Catégories' }),
+        h('button', { type: 'button', class: 'btn', 'data-action': 'back', text: '← Retour au stock' })),
+      h('p', { class: 'total', text: 'Une catégorie regroupe des articles de même famille. Chaque catégorie ou sous-catégorie a ses propres champs à renseigner (longueur, nombre de pôles, connecteur…). Une sous-catégorie reprend les champs de sa catégorie.' })
+    ];
+    var tops = topCats();
+    if (!tops.length) {
+      nodes.push(h('p', { class: 'empty', text: 'Aucune catégorie pour l’instant. Crée la première ci-dessus, par exemple « Câbles ».' }));
+    } else {
+      var rows = [];
+      tops.forEach(function (t) {
+        rows.push(catRow(t, false));
+        subsOf(t.id).forEach(function (s) { rows.push(catRow(s, true)); });
+      });
+      nodes.push(h('ul', { class: 'rows' }, rows));
+    }
+    list.replaceChildren.apply(list, nodes);
+  }
+  function addCategory(nom, parent) {
+    nom = String(nom || '').trim();
+    if (!nom) { toast('Donne un nom à la catégorie.'); return Promise.resolve(null); }
+    var dup = state.cats.some(function (c) { return (c.parent || '') === (parent || '') && String(c.nom).toLowerCase() === nom.toLowerCase(); });
+    if (dup) { toast('Ce nom existe déjà ici.'); return Promise.resolve(null); }
+    return Promise.resolve(store.add('categories', { nom: nom, parent: parent || '', champs: [] })).catch(function (e) { notifyError(e); return null; });
+  }
+
+  /* ---------- liste de commande ---------- */
+  function qtyCmd(a) { return num(a.qte_cmd) > 0 ? num(a.qte_cmd) : 1; }
+  function orderItems() { return state.items.filter(isAlert).sort(byName); }
+  function groupBySupplier(items) {
+    var g = {};
+    items.forEach(function (a) { var k = a.fournisseur || ''; (g[k] = g[k] || []).push(a); });
+    return Object.keys(g).sort(function (x, y) {
+      if (!x) return 1; if (!y) return -1; return x.localeCompare(y, 'fr');
+    }).map(function (k) { return { name: k, items: g[k] }; });
+  }
+  function selected() { return orderItems().filter(function (a) { return !state.excluded[a.id]; }); }
+  function orderText() {
+    var lines = ['Commande bus, ' + new Date().toLocaleDateString('fr-CH')];
+    groupBySupplier(selected()).forEach(function (g) {
+      lines.push('', g.name || 'Fournisseur à définir');
+      g.items.forEach(function (a) {
+        var d = attrText(a);
+        lines.push('- ' + qtyCmd(a) + ' × ' + baseName(a) + (a.reference ? ' (réf. ' + a.reference + ')' : '') + (d ? ' : ' + d : ''));
+      });
+    });
+    return lines.join('\n');
+  }
+  function csvCell(v) {
+    v = String(v == null ? '' : v);
+    return /[";\n\r]/.test(v) ? '"' + v.replace(/"/g, '""') + '"' : v;
+  }
+  function orderCsv() {
+    var rows = [['Fournisseur', 'Référence', 'Article', 'Détails', 'Quantité']];
+    groupBySupplier(selected()).forEach(function (g) {
+      g.items.forEach(function (a) { rows.push([g.name, a.reference || '', baseName(a), attrText(a), qtyCmd(a)]); });
+    });
+    return '﻿' + rows.map(function (r) { return r.map(csvCell).join(';'); }).join('\r\n');
+  }
+  function saveFile(name, text, type) {
+    var blob = new Blob([text], { type: type });
+    var url = URL.createObjectURL(blob);
+    var a = document.createElement('a');
+    a.href = url; a.download = name;
+    document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(function () { URL.revokeObjectURL(url); }, 4000);
+  }
+  /* ---------- copies automatiques (une par jour, dans l'appareil) ---------- */
+  function lsGet(k) { try { return localStorage.getItem(k); } catch (e) { return null; } }
+  function lsSet(k, v) { try { localStorage.setItem(k, v); return true; } catch (e) { return false; } }
+  function readSnaps() {
+    var s = {};
+    try { s = JSON.parse(lsGet(SNAP_KEY) || '{}'); } catch (e) { s = {}; }
+    return s && typeof s === 'object' && !Array.isArray(s) ? s : {};
+  }
+  function todayKey() {
+    var d = new Date();
+    return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
+  }
+  /* Enregistre l'état actuel sous une clé (sans les photos, pour rester léger), garde les SNAP_KEEP plus récentes. */
+  function saveSnap(key) {
+    var snaps = readSnaps();
+    snaps[key] = {
+      t: new Date().toISOString(),
+      articles: state.items.map(function (a) { var c = Object.assign({}, a); delete c.photoData; return c; }),
+      categories: state.cats.map(function (c) { return Object.assign({}, c); })
+    };
+    Object.keys(snaps).sort().slice(0, -SNAP_KEEP).forEach(function (k) { delete snaps[k]; });
+    var ok = lsSet(SNAP_KEY, JSON.stringify(snaps));
+    while (!ok) {   // mémoire pleine : on retire la plus ancienne copie et on réessaie
+      var oldest = Object.keys(snaps).sort().filter(function (k) { return k !== key; })[0];
+      if (!oldest) break;
+      delete snaps[oldest];
+      ok = lsSet(SNAP_KEY, JSON.stringify(snaps));
+    }
+    return ok;
+  }
+  /* Une copie par jour, prise à la première ouverture. Seulement quand les données sont dans l'appareil. */
+  function takeSnapshot() {
+    if (!store || !store.local || !state.ready || !state.catsReady) return;
+    if (!state.items.length && !state.cats.length) return;
+    var k = todayKey();
+    if (readSnaps()[k]) return;
+    if (!saveSnap(k)) toast('Copie automatique impossible : mémoire de l’appareil pleine.');
+  }
+  function dayLabel(k) {
+    var p = k.slice(0, 10).split('-');
+    var s = new Date(+p[0], +p[1] - 1, +p[2]).toLocaleDateString('fr-CH', { weekday: 'long', day: 'numeric', month: 'long' });
+    if (k.length > 10) return 'Avant la dernière restauration';
+    return k === todayKey() ? s + ' (aujourd’hui)' : s;
+  }
+  async function restoreSnap(k) {
+    var s = readSnaps()[k];
+    if (!s || !store || !store.replaceAll) { toast('Restauration impossible.'); return; }
+    saveSnap(todayKey() + '~avant');   // filet de sécurité : l'état actuel reste récupérable
+    try {
+      await store.replaceAll('categories', s.categories || []);
+      await store.replaceAll('articles', s.articles || []);
+    } catch (err) { notifyError(err); return; }
+    state.open = null; state.qty = null; state.editFiche = null; state.snapOpen = false;
+    toast('Copie restaurée');
+    render();
+  }
+  function renderSnaps() {
+    var box = $('#snapBox');
+    var show = state.view === 'stock' && state.snapOpen && store && store.local;
+    box.hidden = !show;
+    if (!show) return;
+    var snaps = readSnaps(), keys = Object.keys(snaps).sort().reverse();
+    var kids = [
+      h('h2', { text: 'Copies automatiques' }),
+      h('p', { class: 'notice', text: 'Une copie est faite chaque jour à la première ouverture (7 jours conservés, sans les photos). Elles protègent contre une erreur, pas contre la perte du téléphone : pour ça, utilise « Sauvegarder maintenant ».' })
+    ];
+    if (!keys.length) kids.push(h('p', { class: 'empty', text: 'Aucune copie pour l’instant.' }));
+    else kids.push(h('ul', { class: 'rows' }, keys.map(function (k) {
+      var s = snaps[k], armed = state.confirm === 'snap:' + k;
+      var hour = s.t ? new Date(s.t).toLocaleTimeString('fr-CH', { hour: '2-digit', minute: '2-digit' }) : '';
+      var n = (s.articles || []).length;
+      return h('li', { class: 'row' },
+        h('div', { class: 'info' },
+          h('div', { class: 'name', text: dayLabel(k) }),
+          h('div', { class: 'meta', text: n + (n > 1 ? ' articles' : ' article') + (hour ? ' · prise à ' + hour : '') })),
+        h('button', { type: 'button', class: 'btn danger' + (armed ? ' confirm' : ''), 'data-action': 'snap-restore', 'data-val': k, text: armed ? 'Confirmer' : 'Restaurer' }));
+    })));
+    kids.push(h('button', { type: 'button', class: 'linkbtn', 'data-action': 'snaps', text: 'Fermer' }));
+    box.replaceChildren.apply(box, kids);
+  }
+
+  /* ---------- rappel de sauvegarde externe ---------- */
+  function lastExport() { var t = Date.parse(lsGet(LAST_EXPORT_KEY) || ''); return isFinite(t) ? t : 0; }
+  function renderBackupBanner() {
+    var el = $('#bkBanner');
+    var last = lastExport();
+    var need = state.view === 'stock' && state.ready && (state.items.length || state.cats.length) && Date.now() - last > EXPORT_EVERY;
+    el.hidden = !need;
+    if (!need) return;
+    var when = last ? new Date(last).toLocaleString('fr-CH', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' }) : '';
+    el.replaceChildren(
+      h('p', { text: last ? 'Dernière sauvegarde : ' + when : 'Pas encore de sauvegarde exportée.' }),
+      h('button', { type: 'button', class: 'btn primary', 'data-action': 'export', text: 'Sauvegarder maintenant' }));
+  }
+  /* Ouvre le menu de partage de l'iPhone (Enregistrer dans Fichiers / OneDrive) ; sinon télécharge le fichier. */
+  async function exportData() {
+    if (!state.items.length && !state.cats.length) { toast('Rien à sauvegarder pour l’instant.'); return; }
+    var payload = { app: 'stock-bus', version: 2, exporte: new Date().toISOString(), articles: state.items, categories: state.cats };
+    var text = JSON.stringify(payload);
+    var name = 'stock-bus-' + todayKey() + '.json';
+    try {
+      var file = new File([text], name, { type: 'application/json' });
+      if (navigator.canShare && navigator.canShare({ files: [file] })) await navigator.share({ files: [file], title: 'Sauvegarde Stock du bus' });
+      else saveFile(name, text, 'application/json');
+    } catch (err) {
+      if (err && err.name === 'AbortError') { toast('Sauvegarde annulée'); return; }
+      saveFile(name, text, 'application/json');
+    }
+    lsSet(LAST_EXPORT_KEY, new Date().toISOString());
+    toast('Sauvegarde créée');
+    render();
+  }
+  async function importData(file) {
+    if (!file) return;
+    try {
+      var data = JSON.parse(await file.text());
+      var arts = Array.isArray(data) ? data : data && data.articles;
+      var cats = data && !Array.isArray(data) && Array.isArray(data.categories) ? data.categories : [];
+      if (!Array.isArray(arts)) throw new Error('fichier non reconnu');
+      function clean(list, needName) {
+        return list.filter(function (a) { return a && typeof a === 'object' && a.id && (!needName || a.nom); })
+          .map(function (a) { return Object.assign({}, a, { id: String(a.id) }); });
+      }
+      var okArts = clean(arts, false), okCats = clean(cats, true).map(function (c) { return Object.assign({}, c, { champs: Array.isArray(c.champs) ? c.champs : [] }); });
+      if (!okArts.length && !okCats.length) throw new Error('aucun article trouvé');
+      if (!store || !store.putMany) throw new Error('restauration indisponible ici');
+      if (okCats.length) await store.putMany('categories', okCats);
+      if (okArts.length) await store.putMany('articles', okArts);
+      toast(okArts.length + (okArts.length > 1 ? ' articles restaurés' : ' article restauré'));
+    } catch (err) {
+      toast('Restauration impossible : ' + ((err && err.message) || 'erreur inconnue') + '.');
+    }
+  }
+  async function copyOrder() {
+    if (!selected().length) { toast('Aucun article coché.'); return; }
+    try { await navigator.clipboard.writeText(orderText()); toast('Liste copiée'); }
+    catch (e) { toast('Copie impossible ici. Utilise le téléchargement CSV.'); }
+  }
+  async function saveCsv() {
+    if (!selected().length) { toast('Aucun article coché.'); return; }
+    var name = 'commande-bus-' + new Date().toISOString().slice(0, 10) + '.csv';
+    if (!state.downloads) {
+      saveFile(name, orderCsv(), 'text/csv;charset=utf-8');
+      toast('Fichier créé');
+      return;
+    }
+    try {
+      await state.downloads.save({ filename: name, data: orderCsv() });
+      toast('Fichier enregistré');
+    } catch (e) {
+      if (e && e.code === 'declined') return;
+      toast('Téléchargement impossible ici. Utilise « Copier la liste ».');
+    }
+  }
+  function orderRow(a) {
+    var on = !state.excluded[a.id];
+    var stock = isLevel(a) ? 'Niveau bas' : 'Reste ' + num(a.quantite) + ' (seuil ' + num(a.seuil) + ')';
+    return h('li', { class: 'row oline' + (on ? '' : ' off') },
+      h('input', { type: 'checkbox', class: 'check', 'data-action': 'toggle', 'data-id': a.id, checked: on, 'aria-label': 'Inclure ' + baseName(a) }),
+      h('div', { class: 'info' },
+        h('div', { class: 'name', text: baseName(a) }),
+        attrText(a) ? h('div', { class: 'attrs', text: attrText(a) }) : null,
+        h('div', { class: 'meta', text: [a.reference ? 'Réf. ' + a.reference : '', stock].filter(Boolean).join(' · ') })),
+      h('div', { class: 'stepper' },
+        h('button', { type: 'button', class: 'step', 'data-action': 'q-dec', 'data-id': a.id, 'aria-label': baseName(a) + ' : commander 1 de moins', disabled: qtyCmd(a) <= 1, text: '−' }),
+        h('output', { class: 'qty', 'aria-label': 'Quantité à commander : ' + baseName(a), text: String(qtyCmd(a)) }),
+        h('button', { type: 'button', class: 'step plus', 'data-action': 'q-inc', 'data-id': a.id, 'aria-label': baseName(a) + ' : commander 1 de plus', text: '+' })));
+  }
+  function renderOrder() {
+    var list = $('#list');
+    var head = h('div', { class: 'order-head' }, h('h2', { text: 'Liste de commande' }),
+      h('button', { type: 'button', class: 'btn', 'data-action': 'back', text: '← Retour au stock' }));
+    var items = orderItems();
+    if (!items.length) {
+      list.replaceChildren(head, h('p', { class: 'empty', text: 'Rien à commander : tout est au-dessus du seuil.' }));
+      return;
+    }
+    var nodes = [head];
+    groupBySupplier(items).forEach(function (g) {
+      nodes.push(h('section', { class: 'group' },
+        h('div', { class: 'group-head' }, h('h2', { text: g.name || 'Fournisseur à définir' }),
+          h('span', { class: 'hint', text: g.items.length + (g.items.length > 1 ? ' articles' : ' article') })),
+        h('ul', { class: 'rows' }, g.items.map(orderRow))));
+    });
+    var sel = selected();
+    var units = sel.reduce(function (t, a) { return t + qtyCmd(a); }, 0);
+    nodes.push(h('p', { class: 'total', text: sel.length + (sel.length > 1 ? ' lignes cochées' : ' ligne cochée') + ', ' + units + ' à commander au total.' }));
+    nodes.push(h('div', { class: 'export' },
+      h('button', { type: 'button', class: 'btn primary', 'data-action': 'copy-order', text: 'Copier la liste' }),
+      h('button', { type: 'button', class: 'btn', 'data-action': 'csv', text: 'Télécharger en CSV' })));
+    list.replaceChildren.apply(list, nodes);
+  }
+
+  /* ---------- rendu général ---------- */
+  function render() {
+    var a = document.activeElement, key = null;
+    if (a && a.dataset && a.dataset.action) key = [a.dataset.action, a.dataset.id || '', a.dataset.val || ''];
+    if (state.catFilter && !cat(state.catFilter)) state.catFilter = '';
+    var n = state.items.length;
+    $('#sub').textContent = state.ready ? n + (n > 1 ? ' articles suivis' : ' article suivi') : '';
+    var v = state.view;
+    var ab = $('#addBtn');
+    ab.hidden = v !== 'stock';
+    ab.textContent = state.adding ? 'Fermer' : '+ Ajouter';
+    ab.setAttribute('aria-expanded', String(state.adding));
+    $('#addBox').hidden = v !== 'stock' || !state.adding;
+    $('#catBox').hidden = v !== 'cats';
+    $('#backup').hidden = v !== 'stock';
+    $('#snapLink').hidden = !(store && store.local);
+    renderBackupBanner();
+    renderSnaps();
+    var notice = $('#notice');
+    notice.hidden = !state.error;
+    notice.textContent = 'La connexion au stock est interrompue. Recharge la page.';
+    if (state.adding) syncAddForm();
+    if (v === 'order') { $('#banner').hidden = true; $('#toolbar').hidden = true; renderOrder(); }
+    else if (v === 'cats') { $('#banner').hidden = true; $('#toolbar').hidden = true; renderCats(); }
+    else { renderBanner(); renderToolbar(); renderList(); }
+    var z = $('#zoom');
+    z.hidden = !state.zoom;
+    if (state.zoom) $('#zoomImg').src = state.zoom;
+    if (key) {
+      var el = [].slice.call(document.querySelectorAll('[data-action]')).find(function (x) {
+        return x.dataset.action === key[0] && (x.dataset.id || '') === key[1] && (x.dataset.val || '') === key[2];
+      });
+      if (el && !el.disabled && el !== document.activeElement && el.id !== 'zoom') el.focus({ preventScroll: true });
+    }
+  }
+
+  /* ---------- actions ---------- */
+  function okQty() {
+    var d = state.qty;
+    if (!d) return;
+    var it = find(d.id);
+    var input = $('#ed-val');
+    state.qty = null;
+    if (it) {
+      if (isLevel(it)) changeItem(it.id, { etat: d.value });
+      else changeItem(it.id, { quantite: Math.max(0, parseInt(input ? input.value : d.value, 10) || 0) });
+      toast('Stock mis à jour');
+    } else render();
+  }
+  function readInput(id) { var el = document.getElementById(id); return el ? el.value : ''; }
+
+  document.addEventListener('click', function (e) {
+    var b = e.target.closest('[data-action]');
+    if (!b) return;
+    var act = b.dataset.action, id = b.dataset.id, val = b.dataset.val;
+    var it = id ? find(id) : null;
+    var c = id ? cat(id) : null;
+    if (!KEEP_CONFIRM[act]) state.confirm = null;
+    if (act === 'add') {
+      state.adding = !state.adding; render();
+      if (state.adding) $('#f-nom').focus();
+    } else if (act === 'add-cancel') {
+      state.adding = false; resetAddForm(); render();
+    } else if (act === 'open') {
+      state.qty = null; state.editFiche = null; state.open = state.open === id ? null : id; render();
+    } else if (act === 'qty' && it) {
+      state.open = null; state.editFiche = null;
+      state.qty = (state.qty && state.qty.id === id) ? null : { id: id, value: isLevel(it) ? (it.etat || 'plein') : num(it.quantite) };
+      render();
+    } else if (act === 'ed-dec' || act === 'ed-inc') {
+      var inp = $('#ed-val');
+      if (inp && state.qty) {
+        var v = Math.max(0, (parseInt(inp.value, 10) || 0) + (act === 'ed-inc' ? 1 : -1));
+        inp.value = String(v); state.qty.value = v;
+      }
+    } else if (act === 'ed-level') {
+      if (state.qty) { state.qty.value = val; render(); }
+    } else if (act === 'ed-cancel') {
+      state.qty = null; render();
+    } else if (act === 'ed-ok') {
+      okQty();
+    } else if (act === 'filter') {
+      state.filter = val; render();
+    } else if (act === 'cats') {
+      state.view = 'cats'; state.open = null; state.qty = null; state.editFiche = null; state.adding = false; render(); window.scrollTo(0, 0);
+    } else if (act === 'cat-open') {
+      state.catOpen = state.catOpen === id ? null : id; render();
+    } else if (act === 'cat-field-add' && c) {
+      var fname = readInput('nf-' + id).trim();
+      if (!fname) { toast('Donne un nom au champ.'); }
+      else if (fieldsFor(id).some(function (f) { return f.nom.toLowerCase() === fname.toLowerCase(); })) { toast('Ce champ existe déjà.'); }
+      else changeCat(id, { champs: (c.champs || []).concat([{ id: newId('f'), nom: fname }]) });
+    } else if (act === 'cat-field-del' && c) {
+      var ck = 'field:' + id + ':' + val;
+      if (state.confirm === ck) { state.confirm = null; changeCat(id, { champs: (c.champs || []).filter(function (f) { return f.id !== val; }) }); }
+      else { state.confirm = ck; render(); }
+    } else if (act === 'cat-sub-add' && c) {
+      addCategory(readInput('ns-' + id), id).then(function (nid) { if (nid) { state.catOpen = nid; render(); } });
+    } else if (act === 'cat-del' && c) {
+      if (subsOf(id).length || countIn(id)) {
+        state.confirm = null;
+        toast('Impossible : retire d’abord les sous-catégories et change la catégorie des articles concernés.');
+        render();
+      } else if (state.confirm === 'cat:' + id) {
+        state.confirm = null; state.catOpen = null; removeDoc('categories', id).then(render);
+      } else { state.confirm = 'cat:' + id; render(); }
+    } else if (act === 'order') {
+      state.view = 'order'; state.open = null; state.editFiche = null; state.qty = null; render(); window.scrollTo(0, 0);
+    } else if (act === 'back') {
+      state.view = 'stock'; render(); window.scrollTo(0, 0);
+    } else if (act === 'toggle') {
+      state.excluded[id] = !state.excluded[id]; render();
+    } else if (act === 'q-inc' && it) changeItem(id, { qte_cmd: qtyCmd(it) + 1 });
+    else if (act === 'q-dec' && it) changeItem(id, { qte_cmd: Math.max(1, qtyCmd(it) - 1) });
+    else if (act === 'export') exportData();
+    else if (act === 'copy-order') copyOrder();
+    else if (act === 'csv') saveCsv();
+    else if (act === 'fiche-edit') { state.editFiche = id; render(); }
+    else if (act === 'fiche-done') { state.editFiche = null; state.confirm = null; render(); }
+    else if (act === 'new-photo-del') resetNewPhoto();
+    else if (act === 'photo-del') {
+      if (state.confirm === 'photo:' + id) { state.confirm = null; changeItem(id, { photoData: '' }); }
+      else { state.confirm = 'photo:' + id; render(); }
+    }
+    else if (act === 'zoom') { state.zoom = it && it.photoData ? it.photoData : null; render(); }
+    else if (act === 'zoom-close') { state.zoom = null; render(); }
+    else if (act === 'del') {
+      if (state.confirm === id) { state.confirm = null; state.open = null; removeItem(id).then(render); }
+      else { state.confirm = id; }
+      render();
+    } else if (act === 'del-examples') {
+      if (state.confirm === 'examples') { state.confirm = null; removeExamples().then(render); }
+      else { state.confirm = 'examples'; }
+      render();
+    } else if (act === 'snaps') {
+      state.snapOpen = !state.snapOpen; render();
+    } else if (act === 'snap-restore' && val) {
+      if (state.confirm === 'snap:' + val) { state.confirm = null; restoreSnap(val); }
+      else { state.confirm = 'snap:' + val; render(); }
+    } else render();
+  });
+
+  document.addEventListener('input', function (e) {
+    if (e.target && e.target.id === 'ed-val' && state.qty) state.qty.value = parseInt(e.target.value, 10) || 0;
+  });
+  document.addEventListener('keydown', function (e) {
+    if (e.key === 'Escape') {
+      if (state.zoom) { state.zoom = null; render(); }
+      else if (state.qty) { state.qty = null; render(); }
+    } else if (e.key === 'Enter' && e.target && e.target.id === 'ed-val') {
+      e.preventDefault(); okQty();
+    }
+  });
+  document.addEventListener('change', function (e) {
+    var el = e.target;
+    if (!el || !el.dataset) return;
+    if (el.id === 'catFilter') {
+      state.catFilter = el.value; render();
+    } else if (el.id === 'f-cat') {
+      syncAddForm();
+    } else if (el.dataset.catfield) {
+      var cv = el.value.trim();
+      var cc = cat(el.dataset.id);
+      if (!cv) { el.value = cc ? cc.nom || '' : ''; toast('Le nom ne peut pas être vide.'); return; }
+      changeCat(el.dataset.id, { nom: cv }, true);
+    } else if (el.dataset.field) {
+      var v = el.type === 'number' ? Math.max(0, parseInt(el.value, 10) || 0) : el.value.trim();
+      if (el.dataset.field === 'nom' && !v) {
+        var cur = find(el.dataset.id);
+        if (!cur || !fieldsFor(cur.catId).length) {
+          el.value = cur ? cur.nom || '' : '';
+          toast('Le nom ne peut pas être vide.');
+          return;
+        }
+      }
+      var patch = {}; patch[el.dataset.field] = v;
+      changeItem(el.dataset.id, patch, el.dataset.field !== 'seuil' && el.dataset.field !== 'catId');
+    } else if (el.dataset.photo) {
+      var f = el.files && el.files[0];
+      el.value = '';
+      uploadPhoto(el.dataset.photo, f);
+    } else if (el.id === 'import-file') {
+      var imf = el.files && el.files[0];
+      el.value = '';
+      importData(imf);
+    } else if (el.id === 'f-photo' || el.id === 'f-photo-cam') {
+      var nf = el.files && el.files[0];
+      el.value = '';
+      pickNewPhoto(nf);
+    }
+  });
+
+  function syncType() { $('#f-unit-fields').hidden = $('#f-type').value === 'niveau'; }
+  $('#f-type').addEventListener('change', syncType);
+  $('#addForm').addEventListener('submit', async function (e) {
+    e.preventDefault();
+    if (!store) { toast('Le stock se charge encore, patiente un instant.'); return; }
+    var nom = $('#f-nom').value.trim();
+    var catId0 = $('#f-cat').value;
+    var hasAttr = !!catId0 && fieldsFor(catId0).some(function (f) { return readInput('f-a-' + f.id).trim(); });
+    if (!nom && !hasAttr) {
+      toast(catId0 && fieldsFor(catId0).length ? 'Donne un nom ou remplis au moins un champ.' : 'Donne un nom à l’article.');
+      $('#f-nom').focus(); return;
+    }
+    var type = $('#f-type').value;
+    var data = type === 'niveau'
+      ? { nom: nom, type: 'niveau', etat: 'plein' }
+      : { nom: nom, type: 'unite', quantite: Math.max(0, parseInt($('#f-qty').value, 10) || 0), seuil: Math.max(0, parseInt($('#f-seuil').value, 10) || 0) };
+    var four = $('#f-fourn').value.trim();
+    if (four) data.fournisseur = four;
+    var ref = $('#f-ref').value.trim();
+    if (ref) data.reference = ref;
+    var catId = $('#f-cat').value;
+    if (catId) {
+      data.catId = catId;
+      fieldsFor(catId).forEach(function (f) {
+        var av = readInput('f-a-' + f.id).trim();
+        if (av) data[attrKey(f)] = av;
+      });
+    }
+    if (state.newPhoto) data.photoData = state.newPhoto;
+    try { await store.add('articles', data); } catch (err) { notifyError(err); return; }
+    resetAddForm();
+    state.adding = false; render();
+    toast('Article ajouté');
+  });
+  $('#catForm').addEventListener('submit', async function (e) {
+    e.preventDefault();
+    if (!store) return;
+    var nid = await addCategory($('#c-new').value, '');
+    if (nid) { $('#c-new').value = ''; state.catOpen = nid; render(); }
+  });
+
+  /* ---------- démarrage ---------- */
+  async function boot() {
+    render();
+    var db = null;
+    try { db = (window.claude && window.claude.use) ? await window.claude.use('db') : null; } catch (e) { db = null; }
+    try { state.downloads = (window.claude && window.claude.use) ? await window.claude.use('downloads') : null; } catch (e) { state.downloads = null; }
+    try { if (!db && navigator.storage && navigator.storage.persist) navigator.storage.persist(); } catch (e) {}
+    store = db ? makeDbStore(db) : makeLocalStore();
+    var onErr = function () { state.error = true; render(); };
+    store.subscribe('articles', function (l) { applyList('articles', l); }, onErr);
+    store.subscribe('categories', function (l) { applyList('categories', l); }, onErr);
+  }
+  /* Si l'app reste ouverte d'un jour à l'autre, la copie du nouveau jour se fait au retour dessus. */
+  document.addEventListener('visibilitychange', function () {
+    if (!document.hidden) { takeSnapshot(); render(); }
+  });
+  boot();
+})();
+</script>
+
+</body></html>
